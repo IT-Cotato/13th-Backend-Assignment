@@ -4,6 +4,27 @@
 
 ---
 
+# 0. 과제 내용 
+
+## 학습 순서
+
+1. concept.md 읽기
+2. assignment.md 과제 수행
+3. PR로 제출
+4. solution.md 해설 확인
+   - 과제 해설은 6월 26일에 올려드릴 예정입니다.
+
+## 과제 제출 방법
+
+- 위 저장소를 fork 한 후 clone 해서 문서를 작성합니다.
+- clone 후 새로운 branch를 만든 후 작업합니다.
+- 과제를 완료한 후 원본 Repository의 `develop branch`로 Pull Request를 해주세요.
+- Read Me에 ERD 구조 사진 첨부(ERD Cloud 등등 모델링 툴은 아무거나 사용하셔도 됩니다)
+- Swagger 설정을 완료한 뒤, API 명세 화면을 캡처하여 README에 첨부해주세요.
+- Pull Request 제목 예시: `[임준서] 과제 제출`
+
+---
+
 # 1. 목표
 
 앞으로 1주차부터 8주차까지 다룰 **선착순 쿠폰 발급 시스템의 전체 흐름**을 먼저 이해한다.
