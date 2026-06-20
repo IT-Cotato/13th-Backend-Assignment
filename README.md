@@ -504,73 +504,10 @@ Redis 성공 후 DB 저장 실패처럼 정합성이 깨질 수 있는 상황은
 | EDA | 이벤트를 기반으로 서비스 간 결합도를 낮추는 아키텍처 |
 | CQRS | 명령 처리와 조회 처리를 분리하는 설계 방식 |
 
----
-
-# 8. 예시 API와 메시지 구조
-
-0주차에서는 전체 구조를 이해하기 위한 간단한 예시만 제공한다.
-
-구체적인 API, 메시지 구조, 테이블 설계는 이후 주차 과제에서 직접 설계한다.
-
-## 쿠폰 발급 요청 API 예시
-
-```
-POST /api/coupon-events/{eventId}/issue
-```
-
-### Request Body 예시
-
-```json
-{
-  "userId": 1,
-  "requestId": "req-001"
-}
-```
-
-### Response Body 예시
-
-```json
-{
-  "status": "PENDING",
-  "message": "쿠폰 발급 요청이 접수되었습니다.",
-  "requestId": "req-001"
-}
-```
-
-## 발급 상태 조회 API 예시
-
-```
-GET /api/coupon-issue-requests/{requestId}
-```
-
-### Response Body 예시
-
-```json
-{
-  "requestId": "req-001",
-  "eventId": 100,
-  "userId": 1,
-  "status": "ISSUED",
-  "message": "쿠폰이 발급되었습니다."
-}
-```
-
-## Kafka 메시지 예시
-
-```json
-{
-  "requestId": "req-001",
-  "eventId": 100,
-  "userId": 1,
-  "requestedAt": "2026-07-01T12:00:00"
-}
-```
-
-이 메시지는 Redis 선착순 판정에 성공한 뒤 Kafka에 발행되는 쿠폰 발급 요청 메시지의 예시다.
 
 ---
 
-# 9. 필수 과제와 심화 과제 기준
+# 8. 필수 과제와 심화 과제 기준
 
 이번 과제는 모든 내용을 구현하는 것이 목표가 아니다.
 
@@ -621,7 +558,7 @@ GET /api/coupon-issue-requests/{requestId}
 
 ---
 
-# 10. 진행 방식
+# 09. 진행 방식
 
 0주차에서는 전체 문제 상황과 아키텍처 초안을 이해한다.
 
