@@ -39,7 +39,7 @@ API 서버가 바로 쿠폰 발급까지 처리할 것인가?
 
 이벤트 시작 시간이 되면 많은 사용자가 동시에 쿠폰 발급 버튼을 누른다.
 
-!image.png
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/d90874d2-601a-48e4-95df-636341db25cb" />
 
 가장 단순한 구조는 다음과 같다.
 
