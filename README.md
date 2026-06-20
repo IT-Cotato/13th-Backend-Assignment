@@ -83,6 +83,8 @@
 
 # 3. 기본 설계 방향
 
+<img width="1693" height="929" alt="image" src="https://github.com/user-attachments/assets/7f4b13a4-0a8e-44d2-aeb2-c0b0ef219577" />
+
 
 이번 과제에서는 아래 구조를 기본 방향으로 잡는다.
 
@@ -115,7 +117,7 @@ Client
 
 이번 과제에서 기본적으로 생각할 전체 흐름은 다음과 같다.
 
-!image.png
+<img width="1448" height="1086" alt="image" src="https://github.com/user-attachments/assets/108af2c6-c9ff-445e-9574-6211ced41cf4" />
 
 각 구성 요소의 역할은 다음과 같다.
 
@@ -162,7 +164,7 @@ Client
 
 실제 발급 결과는 나중에 조회 API나 마이페이지에서 확인하게 한다.
 
-!image.png
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/de09bfe2-33de-44fd-a609-673d5870f2f6" />
 
 ### 관련 주차
 
@@ -193,7 +195,7 @@ Consumer는 Kafka에서 메시지를 읽고 실제 쿠폰 발급 처리를 수�
 
 이때 Topic, Partition, Partition Key, Consumer Group을 잘 설계해야 대량 요청을 안정적으로 처리할 수 있다.
 
-!image.png
+<img width="1448" height="1086" alt="image" src="https://github.com/user-attachments/assets/434f2461-d0b0-471d-8b5c-4fd959bac022" />
 
 ### 관련 주차
 
@@ -240,13 +242,14 @@ Client
 → Consumer가 DB 저장
 ```
 
+
+<img width="1448" height="1086" alt="image" src="https://github.com/user-attachments/assets/96cf5bb2-6972-4d9b-86e7-683b50366f2c" />
+
 ### 관련 주차
 
 ```
 3주차: Redis 선착순 판정 구조
 ```
-
-!image.png
 
 ---
 
@@ -277,7 +280,7 @@ DB에 쿠폰 발급 관련 테이블을 설계하고, `eventId + userId`에 Uniq
 
 즉, Redis는 빠른 선착순 판정을 담당하고, DB는 최종 발급 기록을 보장하는 마지막 방어선 역할을 한다.
 
-!image.png
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/6f4bd3ed-97bb-4e19-8ecf-63db709ad4e9" />
 
 ### 관련 주차
 
@@ -324,7 +327,7 @@ FAILED
 
 반면 DB Unique Key는 같은 사용자가 같은 쿠폰을 두 번 받지 못하게 막는 최종 방어선이다.
 
-!image.png
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/1aeeef02-8315-4a86-b5af-f8293b056ef1" />
 
 ### 관련 주차
 
@@ -362,7 +365,7 @@ Outbox Pattern을 사용한다.
 
 Kafka 발행에 실패하면 Outbox 상태를 `PENDING`으로 남겨두고 나중에 다시 발행할 수 있다.
 
-!image.png
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/84af7827-a82f-4a76-a529-35635fa322cd" />
 
 ### 관련 주차
 
@@ -407,7 +410,7 @@ Coupon Service
 
 이렇게 하면 서비스 간 결합도를 낮출 수 있다.
 
-!image.png
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/2152362b-6170-4c9e-95e4-f011be52b4ad" />
 
 ### 관련 주차
 
@@ -450,7 +453,7 @@ Consumer가 메시지 처리
 
 Redis 성공 후 DB 저장 실패처럼 정합성이 깨질 수 있는 상황은 보상 트랜잭션을 통해 복구한다.
 
-!image.png
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/77d11a9e-efae-491d-973a-f72c29174f66" />
 
 ### 관련 주차
 
