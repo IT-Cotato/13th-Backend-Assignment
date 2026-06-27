@@ -1,6 +1,6 @@
 # 과제 1 해설 — 동기 처리와 비동기 처리 구조 비교
 
-
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/53e79221-92bf-40bb-b1c1-68cb5666247a" />
 
 아래 다이어그램은 쿠폰 발급 요청이 들어왔을 때 **동기 처리 구조**와 **비동기 처리 구조**가 각각 어떤 순서로 동작하는지 비교한 것이다.
 
