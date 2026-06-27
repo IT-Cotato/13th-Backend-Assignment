@@ -139,7 +139,7 @@ DB 저장
 
 # **3. Kafka를 사용한 기본 구조**
 
-!image.png
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/91d6685f-d7bb-4420-85b3-1a0791db3838" />
 
 Kafka를 사용하면 API Server와 실제 쿠폰 발급 처리 로직을 분리할 수 있다.
 
@@ -205,6 +205,8 @@ Kafka는 두 컴포넌트 사이에서 요청 메시지를 전달한다.
 ---
 
 # **4. Kafka를 단순 Queue처럼 보면 안 되는 이유**
+
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/d7b1e51b-1da2-49d4-95b0-7ee1d0120f98" />
 
 Kafka를 처음 보면 단순히 메시지를 잠깐 담아두는 Queue처럼 느껴질 수 있다.
 
@@ -433,7 +435,7 @@ Consumer가 이 메시지만 보고 필요한 처리를 할 수 있는가?
 
 ## **5.4 Partition**
 
-!image.png
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/df0fb055-b1f7-4fb3-a6e6-82cce0b889d2" />
 
 Partition은 하나의 Topic을 여러 조각으로 나눈 것이다.
 
@@ -493,7 +495,7 @@ Consumer 수를 늘려도 Partition 수보다 더 많이 병렬 처리할 수 �
 
 ## **5.5 Partition Key**
 
-!image.png
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/a3ad4125-2842-4403-a355-ec07734e8d2a" />
 
 Partition Key는 메시지를 어떤 Partition에 보낼지 결정하는 기준이다.
 
@@ -554,7 +556,7 @@ Consumer가 병렬로 처리하기 좋은 구조인가?
 
 ## **5.6 Consumer**
 
-!image.png
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/0d7ef8c4-00c2-4468-9b19-b7e7e55eca9a" />
 
 Consumer는 Kafka Topic에서 메시지를 읽어 처리하는 역할이다.
 
@@ -597,7 +599,7 @@ Consumer는 Kafka에 쌓인 쿠폰 발급 요청 메시지를 읽고,
 
 ## **5.7 Consumer Group**
 
-!image.png
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/2740e0db-7616-4c6c-a99c-3e993e333b35" />
 
 Consumer Group은 여러 Consumer가 하나의 Topic 메시지를 나누어 처리할 수 있게 해주는 묶음이다.
 
@@ -711,7 +713,7 @@ Consumer가 다시 실행되었을 때 Kafka는 다음 질문에 답해야 한�
 
 ## **5.9 Offset Commit**
 
-!image.png
+<img width="1491" height="1055" alt="image" src="https://github.com/user-attachments/assets/a408f823-4fc2-4f72-9f6e-1cba03c2208a" />
 
 Offset Commit은 Consumer가 특정 Offset까지 처리했다고 Kafka에 기록하는 것이다.
 
@@ -830,7 +832,7 @@ Consumer가 메시지 처리
 → 실패 메시지 재처리, DLQ, 보상 트랜잭션
 ```
 
-!image.png
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/8845e92e-6a4d-42de-9bb2-52fc84f5720c" />
 
 이번 주차의 핵심은 다음 문장이다.
 
@@ -842,7 +844,7 @@ Kafka를 사용하는 구조에서는 같은 메시지가 다시 처리될 수 �
 
 # **7. Topic을 어떻게 설계할 것인가?**
 
-!image.png
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/9a42aee1-dad0-4343-8f9d-491a267e8899" />
 
 이번 2주차에서는 최소한 하나의 Topic을 설계한다.
 
@@ -924,7 +926,7 @@ Topic을 설계할 때는 다음 기준을 생각해야 한다.
 
 # **8. Producer 발행 성공과 실패**
 
-!image.png
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/c0f8b8ae-bc1e-45f8-af1a-9f5c535c780a" />
 
 API Server가 Kafka Producer 역할을 한다면 중요한 문제가 하나 생긴다.
 
@@ -1014,7 +1016,7 @@ Partition Key를 어떻게 정하느냐에 따라 메시지 분산과 순서 보
 
 ## **9.1 userId를 Partition Key로 사용하는 경우**
 
-!image.png
+<img width="1448" height="1086" alt="image" src="https://github.com/user-attachments/assets/fd611b6c-1621-41f8-940d-55390c177cb5" />
 
 `userId`를 Partition Key로 사용하면 같은 사용자의 요청은 같은 Partition으로 들어간다.
 
@@ -1049,7 +1051,7 @@ Kafka는 같은 Partition 안에서는 순서를 보장하므로, 같은 사용�
 
 ## **9.2 eventId를 Partition Key로 사용하는 경우**
 
-!image.png
+<img width="1448" height="1086" alt="image" src="https://github.com/user-attachments/assets/5c0e1bc3-de77-4aeb-ae7b-72860a5beec9" />
 
 `eventId`를 Partition Key로 사용하면 같은 쿠폰 이벤트에 대한 요청은 같은 Partition으로 들어갈 가능성이 높다.
 
@@ -1095,7 +1097,7 @@ eventId = 1인 요청 10만 건
 
 ## **9.3 requestId를 Partition Key로 사용하는 경우**
 
-!image.png
+<img width="1448" height="1086" alt="image" src="https://github.com/user-attachments/assets/d096df57-68c3-473a-bb43-1c70989bcc15" />
 
 `requestId`를 Partition Key로 사용하면 요청마다 다른 Key가 사용될 가능성이 높다.
 
@@ -1168,7 +1170,7 @@ requestId = req-3 → Partition 2
 
 # **10. 메시지 순서 보장**
 
-!image.png
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/3cf2907c-26e9-4ce1-b8f4-4f163a920400" />
 
 Kafka의 순서 보장을 이해할 때 가장 중요한 문장은 다음과 같다.
 
@@ -1235,7 +1237,7 @@ Partition Key는 이 둘 사이의 균형을 잡는 설계 포인트다.
 
 # **11. Consumer Group과 병렬 처리 설계**
 
-!image.png
+<img width="1448" height="1086" alt="image" src="https://github.com/user-attachments/assets/e6dac928-4bea-454e-ad10-ca4a8743206d" />
 
 Kafka를 사용하는 이유 중 하나는 Consumer를 여러 개 두어 병렬로 처리할 수 있기 때문이다.
 
@@ -1363,7 +1365,7 @@ Consumer 수가 Partition 수보다 적으면 한 Consumer가 여러 Partition�
 
 # **12. Consumer Lag과 사용자 경험**
 
-!image.png
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/17e97701-7445-49fe-93f9-a81c5d63487c" />
 
 Kafka를 사용하면 API Server는 빠르게 응답할 수 있다.
 
@@ -1486,7 +1488,7 @@ Consumer 처리 속도가 부족하면 병목은 Consumer 쪽으로 이동하고
 
 # **13. API 응답 상태 설계**
 
-!image.png
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/78c1b394-f8e7-41d4-9831-5747cf995433" />
 
 Kafka 기반 비동기 구조에서는 API 응답 상태를 잘 설계해야 한다.
 
@@ -1620,7 +1622,7 @@ Kafka 메시지는 장애 상황에서 중복 처리될 수 있다고 가정해�
 
 # **15. 이번 주차에서 다루지 않는 것**
 
-!image.png
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/b3603fd3-a998-44db-b167-3288ffa58255" />
 
 이번 2주차는 Kafka 기반 비동기 요청 처리 구조를 설계하는 주차다.
 
