@@ -1023,7 +1023,7 @@ Client
 
 ### **13-4. Redis SUCCESS 이후 Kafka 발행 실패**
 
-!image.png
+<img width="1448" height="1086" alt="image" src="https://github.com/user-attachments/assets/c3e89b05-c782-4f8e-ade1-fb3c20f91b2c" />
 
 Redis에서 SUCCESS가 나왔지만 Kafka 발행이 실패할 수도 있다.
 
@@ -1196,7 +1196,7 @@ DB
 
 ## **17. Redis 성공이 최종 성공이 아닌 이유**
 
-!image.png
+<img width="520" height="650" alt="image" src="https://github.com/user-attachments/assets/b6f4ab6a-d46d-4e2a-9289-3c6a0e1862c1" />
 
 다음 상황을 생각해보자.
 
@@ -1237,7 +1237,7 @@ DB에는 발급 기록 없음
 
 ## **18. Redis SUCCESS, Kafka PENDING, DB ISSUED 구분**
 
-!image.png
+<img width="522" height="646" alt="image" src="https://github.com/user-attachments/assets/21443d57-537d-421c-8bc6-71417fbd69c5" />
 
 3주차에서 가장 중요한 상태 구분은 다음이다.
 
