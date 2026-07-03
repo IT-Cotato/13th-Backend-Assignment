@@ -1300,7 +1300,7 @@ DB ISSUED
 
 ## **19. Redis 명령 방식 비교**
 
-!image.png
+<img width="1448" height="1086" alt="image" src="https://github.com/user-attachments/assets/8709f630-9a6c-4e2a-9c72-275d7aefbf62" />
 
 ### **19-1. 방식 A: DB Lock 사용**
 
@@ -1380,7 +1380,7 @@ user:1 요청 2회차 → 또 INCR
 
 ## **20. Redis Key 설계 예시**
 
-!image.png
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/1772212b-1ba9-4f63-8590-ff769e7fc3e1" />
 
 이벤트별로 Redis Key를 분리한다.
 
@@ -1495,7 +1495,7 @@ Redis 성공은 선착순 통과일 뿐이고,
 
 ## **22. 상태 변화 관점으로 보기**
 
-!image.png
+<img width="1491" height="1055" alt="image" src="https://github.com/user-attachments/assets/ce4de0b0-5392-4d3a-805d-6c0ba42821e9" />
 
 사용자 입장에서 쿠폰 요청 상태는 다음처럼 변할 수 있다.
 
@@ -1585,7 +1585,7 @@ FAILED 또는 RETRY
 
 ## **23. 중요한 오해 정리**
 
-!image.png
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/ba58078c-918f-44c0-8786-232f8ac56079" />
 
 ### **오해 1. Redis를 쓰면 무조건 정확한 선착순이 보장된다**
 
@@ -1709,7 +1709,7 @@ limit = 1000
 
 3주차 기준 전체 구조는 다음과 같다.
 
-!image.png
+<img width="1448" height="1086" alt="image" src="https://github.com/user-attachments/assets/2e8279c1-b0d7-4b3b-a627-14d6332ce198" />
 
 ```
 +--------+
@@ -1833,7 +1833,7 @@ DB 저장
 
 ### **26-1. 4주차: DB 테이블 설계와 최종 정합성 보장**
 
-!image.png
+<img width="790" height="820" alt="image" src="https://github.com/user-attachments/assets/634dc4fd-8b4d-4840-a10a-7d360818280e" />
 
 3주차에서 Redis가 선착순 판정을 해도 최종 발급 기록은 DB에 저장되어야 한다.
 
@@ -1876,7 +1876,7 @@ DB 저장 시도
 
 ### **26-2. 5주차: requestId 기반 멱등성과 중복 처리**
 
-!image.png
+<img width="786" height="574" alt="image" src="https://github.com/user-attachments/assets/b9b04af9-a764-48ad-b247-192b93006439" />
 
 사용자는 같은 요청을 여러 번 보낼 수 있다.
 
@@ -1922,7 +1922,7 @@ requestId: req-001 재요청
 
 ### **26-3. 6주차: Outbox Pattern과 이벤트 발행 정합성**
 
-!image.png
+<img width="710" height="1392" alt="image" src="https://github.com/user-attachments/assets/296c7208-5657-4cc6-89d5-73c49c829d64" />
 
 쿠폰 발급이 DB에 저장된 뒤에는 다른 서비스에 발급 결과를 알려야 한다.
 
@@ -1980,7 +1980,7 @@ Kafka 결과 이벤트 발행
 
 ### **26-4. 7주차: EDA 기반 서비스 분리와 조회 구조**
 
-!image.png
+<img width="682" height="1394" alt="image" src="https://github.com/user-attachments/assets/e2629c82-1773-404c-9e90-cc9a704b9c2c" />
 
 쿠폰 발급이 끝난 뒤 해야 할 일이 많다.
 
@@ -2032,7 +2032,7 @@ Coupon Issue Completed Event
 
 ### **26-5. 8주차: Retry / DLQ / 장애 처리와 보상 트랜잭션**
 
-!image.png
+<img width="708" height="1398" alt="image" src="https://github.com/user-attachments/assets/40c01562-db6b-4c2c-8e73-92fdf06515ad" />
 
 마지막 8주차에서는 실패한 메시지를 어떻게 처리할지 배운다.
 
