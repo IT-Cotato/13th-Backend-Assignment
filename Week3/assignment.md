@@ -209,8 +209,6 @@ submissions/Week3/13기_김기민.md
 과제 9. Redis SUCCESS 이후 Kafka 발행 실패 상황 분석하기
 
 과제 10. Redis, Kafka, DB 역할 구분과 이후 주차 연결하기
-
-보너스 과제. 나쁜 Redis 설계의 문제점 찾기
 ```
 
 ---
