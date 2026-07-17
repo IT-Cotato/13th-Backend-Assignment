@@ -24,6 +24,7 @@ SCARD
 2. 현재 통과 사용자 수 확인
 3. 제한 수량 비교
 4. 통과 사용자 추가
+5. 통과 자리의 requestId 소유권과 TTL 저장
 ```
 
 ---
@@ -36,7 +37,7 @@ Redis SUCCESS
 = Redis 기준 선착순 판정을 통과했다.
 = 아직 최종 쿠폰 발급 성공은 아니다.
 
-API PENDING
+REQUEST PENDING
 
 = Kafka에 비동기 처리 요청이 접수되었다.
 = 아직 Consumer와 DB 처리가 남아 있다.
@@ -50,7 +51,7 @@ DB ISSUED
 ```
 Redis SUCCESS ≠ 최종 발급 성공
 
-API PENDING ≠ 최종 발급 성공
+REQUEST PENDING ≠ 최종 발급 성공
 
 DB ISSUED = 최종 발급 성공
 ```
@@ -81,10 +82,12 @@ DB ISSUED = 최종 발급 성공
 |------------------------------------------|
 | Lua Script                               |
 |                                          |
-| 1. SISMEMBER : 중복 사용자 확인          |
-| 2. SCARD     : 현재 통과 인원 확인       |
-| 3. limit 비교 : 수량 확인                |
-| 4. SADD      : 통과 사용자 추가          |
+| 1. HGET      : metadata 판정 기준 확인       |
+| 2. SISMEMBER : 중복 사용자 확인          |
+| 3. SCARD     : 현재 통과 인원 확인       |
+| 4. limit 비교 : 수량 확인                |
+| 5. SADD/HSET : 사용자와 requestId 저장      |
+| 6. EXPIREAT  : 통과 Key 정리 시각 설정    |
 +------------------------------------------+
     |
     | SUCCESS / DUPLICATE / SOLD_OUT
@@ -170,7 +173,10 @@ Kafka가 담당하는 것
 - 메시지 저장과 전달
 - Producer와 Consumer의 처리 속도 분리
 - 순간적인 트래픽 완충
-- Consumer 장애 후 재처리
+- 처리 완료 후 Offset을 Commit하도록 설계하면
+  Consumer 장애 시 완료되지 않은 메시지를 재처리할 수 있다.
+  - Kafka 재처리는 동일 메시지의 중복 처리를 발생시킬 수 있으므로
+    DB 기반 Consumer 멱등 처리가 필요하다.
 ```
 
 ```
@@ -355,7 +361,8 @@ Redis Set으로 이미 통과한 사용자를 관리하면 중복 요청을 앞�
 | Redis Key | 자료구조 | 저장 값 | 역할 |
 | --- | --- | --- | --- |
 | `coupon:{eventId}:issued-users` | Set | Redis 판정을 통과한 userId | 중복 확인과 고유 통과자 수 확인 |
-| `coupon:{eventId}:metadata` | Hash | `limit`, `startAt`, `endAt` | 선착순 판정 기준값 저장 |
+| `coupon:{eventId}:admission-requests` | Hash | `userId -> requestId` | 통과 자리의 소유 요청 확인과 안전한 보상 |
+| `coupon:{eventId}:metadata` | Hash | `limit`, `startAt`, `endAt`, `cleanupAt` | 모든 API Server가 공유하는 판정·정리 기준 |
 | `coupon:{eventId}:request-count` | String | 전체 요청 횟수 | INCR 방식 비교용이며 최종 설계에서는 생략 가능 |
 
 ---
@@ -366,6 +373,7 @@ Redis Set으로 이미 통과한 사용자를 관리하면 중복 요청을 앞�
 
 ```
 coupon:100:issued-users
+coupon:100:admission-requests
 coupon:100:metadata
 ```
 
@@ -373,8 +381,11 @@ Redis Cluster를 사용한다면 같은 Hash Slot에 배치하기 위해 다음�
 
 ```
 coupon:{100}:issued-users
+coupon:{100}:admission-requests
 coupon:{100}:metadata
 ```
+
+Lua Script에서 여러 Key를 함께 사용할 경우 Redis Cluster에서는 모든 Key가 같은 Hash Slot에 있어야 한다. 따라서 이벤트 ID를 `{100}`과 같은 동일한 hash tag로 표현한다.
 
 ---
 
@@ -472,7 +483,6 @@ TTL의 목적은 종료된 이벤트 데이터를 자동으로 정리하는 것�
 ### **방법 1. TTL 자동 만료**
 
 ```
-EXPIREAT coupon:100:issued-users <cleanupAt>
 EXPIREAT coupon:100:metadata <cleanupAt>
 ```
 
@@ -489,6 +499,8 @@ cleanupAt
 두 값은 다를 수 있다.
 
 예를 들어 이벤트가 끝난 뒤 고객 문의를 위해 데이터를 3일 더 보관할 수 있다.
+
+`issued-users`와 `admission-requests`는 첫 통과 요청 전에 존재하지 않을 수 있다. 존재하지 않는 Key에 `EXPIREAT`을 먼저 실행하면 TTL이 예약되지 않는다. 따라서 이 두 Key의 TTL은 첫 `SADD`/`HSET`과 같은 Lua Script 안에서 `cleanupAt`으로 설정한다. `metadata`는 이벤트 준비 단계에서 생성하므로 생성 직후 `EXPIREAT`을 설정한다.
 
 ### **방법 2. 정리 배치**
 
@@ -666,7 +678,7 @@ DB ISSUED
 = 최종 쿠폰 발급 완료 수
 ```
 
-장애나 Redis Key 유실이 없는 정상 흐름에서는 다음 관계를 기대할 수 있다.
+`request-count`를 운용하고 장애나 Redis Key 유실이 없는 정상 흐름에서는 다음 관계를 기대할 수 있다.
 
 ```
 request-count ≥ SCARD ≥ DB ISSUED
@@ -821,6 +833,12 @@ Redis Lua Script를 사용하면 이 흐름을 하나로 실행할 수 있다.
 
 4. SADD
    조건을 만족하면 사용자 추가
+
+5. HSET
+   통과 자리를 만든 requestId 저장
+
+6. EXPIREAT
+   첫 생성된 통과 Key에 cleanupAt 적용
 ```
 
 ---
@@ -846,7 +864,10 @@ currentCount >= limit?
        |      → SOLD_OUT
        |
        v
-SADD
+SADD + HSET
+       |
+       v
+EXPIREAT
        |
        v
 SUCCESS
@@ -866,6 +887,8 @@ Script가 끝날 때까지 다른 클라이언트 명령은 중간에 들어올 
 | `SUCCESS` | Redis 선착순 판정 통과 | Kafka 메시지 발행 |
 | `DUPLICATE` | 이미 통과한 사용자 | 중복 응답 |
 | `SOLD_OUT` | 제한 수량 도달 | 품절 응답 |
+
+metadata 누락, 잘못된 Key 타입, 잘못된 인자는 비즈니스 결과 세 가지로 반환하지 않고 Redis error로 종료한다. API Server는 이를 서버 구성·운영 오류로 기록하고 Kafka에 발행하지 않아야 한다.
 
 ---
 
@@ -905,12 +928,50 @@ SOLD_OUT
 
 ```lua
 -- KEYS[1]: 선착순 통과 사용자 Set
+-- KEYS[2]: userId -> requestId Hash
+-- KEYS[3]: 이벤트 metadata Hash
 -- ARGV[1]: userId
--- ARGV[2]: 제한 수량
+-- ARGV[2]: requestId
 
 local issuedUsersKey = KEYS[1]
+local admissionRequestsKey = KEYS[2]
+local metadataKey = KEYS[3]
 local userId = ARGV[1]
-local limit = tonumber(ARGV[2])
+local requestId = ARGV[2]
+
+if not userId or userId == '' or not requestId or requestId == '' then
+    return redis.error_reply('INVALID_REQUEST')
+end
+
+-- WRONGTYPE으로 첫 쓰기 뒤 Script가 중단되는 상황을 막기 위해 미리 검증한다.
+local issuedUsersType = redis.call('TYPE', issuedUsersKey).ok
+local admissionRequestsType = redis.call('TYPE', admissionRequestsKey).ok
+local metadataType = redis.call('TYPE', metadataKey).ok
+
+if issuedUsersType ~= 'none' and issuedUsersType ~= 'set' then
+    return redis.error_reply('INVALID_ISSUED_USERS_TYPE')
+end
+
+if admissionRequestsType ~= 'none' and admissionRequestsType ~= 'hash' then
+    return redis.error_reply('INVALID_ADMISSION_REQUESTS_TYPE')
+end
+
+if metadataType ~= 'hash' then
+    return redis.error_reply('INVALID_METADATA_TYPE')
+end
+
+-- API Server의 로컬 캐시가 아니라 Redis metadata를 공통 기준으로 사용한다.
+local limit = tonumber(redis.call('HGET', metadataKey, 'limit'))
+local cleanupAt = tonumber(redis.call('HGET', metadataKey, 'cleanupAt'))
+
+-- 쓰기 전에 모든 기준값을 검증한다.
+if not limit or limit <= 0 then
+    return redis.error_reply('INVALID_EVENT_LIMIT')
+end
+
+if not cleanupAt or cleanupAt <= 0 then
+    return redis.error_reply('INVALID_CLEANUP_AT')
+end
 
 -- 이미 통과한 사용자인지 확인한다.
 if redis.call('SISMEMBER', issuedUsersKey, userId) == 1 then
@@ -927,6 +988,12 @@ end
 
 -- 모든 검증을 통과한 뒤 사용자를 추가한다.
 redis.call('SADD', issuedUsersKey, userId)
+redis.call('HSET', admissionRequestsKey, userId, requestId)
+
+-- 두 Key는 첫 요청에서 생성될 수 있으므로 쓰기와 같은 Script에서 TTL을 설정한다.
+-- cleanupAt은 metadata 생성 시 현재 시각보다 뒤인 값으로 검증해야 한다.
+redis.call('EXPIREAT', issuedUsersKey, cleanupAt)
+redis.call('EXPIREAT', admissionRequestsKey, cleanupAt)
 
 return 'SUCCESS'
 ```
@@ -936,6 +1003,8 @@ Redis Lua Script는 다른 명령이 중간에 끼어들지 못하게 실행된�
 다만 관계형 DB 트랜잭션처럼 중간 오류 발생 시 이전 쓰기를 자동 롤백해주는 것은 아니다.
 
 따라서 모든 검증을 첫 번째 쓰기 명령보다 앞에 배치해야 한다.
+
+Redis Cluster에서는 `KEYS[1]`, `KEYS[2]`, `KEYS[3]`을 모두 `coupon:{eventId}:...`로 만들어 같은 Hash Slot에 배치해야 한다. Script가 접근하는 Key 이름은 모두 `KEYS`로 명시적으로 전달한다.
 
 ---
 
@@ -965,7 +1034,7 @@ DB ISSUED
 
 # **과제 7. INCR 기반 선착순 판정 방식 분석하기**
 
-## **7-1. INCR 기반 방식의 기본 흐름**
+## **7-1. 단순 INCR 선행 방식의 기본 흐름**
 
 ```
 Client
@@ -1020,7 +1089,7 @@ coupon:100:issued-users
 
 ---
 
-## **7-3. INCR이 보장하지 못하는 것**
+## **7-3. INCR 명령 하나로 보장하지 못하는 것**
 
 ```
 - 같은 사용자의 중복 요청 차단
@@ -1031,7 +1100,7 @@ coupon:100:issued-users
 - 실패한 요청의 Counter 복구
 ```
 
-`INCR`은 요청자가 누구인지 모르고 숫자만 증가시킨다.
+`INCR` 명령 자체는 요청자가 누구인지 모르고 숫자만 증가시킨다. 다만 Lua Script에서 먼저 중복을 확인하고 신규 사용자일 때만 `INCR`하는 변형 설계는 가능하다. 이 경우에도 Set·Counter 간 일치와 보상 로직을 함께 설계해야 한다.
 
 ---
 
@@ -1134,7 +1203,7 @@ Redis 기준 통과 사용자 수
 
 ## **7-8. INCR 방식과 Set + Lua Script 비교**
 
-| 구분 | INCR 기반 | Set + Lua Script |
+| 구분 | 단순 INCR 선행 | Set + Lua Script |
 | --- | --- | --- |
 | 수량 기준 | 전체 요청 순번 | 고유 통과 사용자 수 |
 | 중복 방지 | INCR만으로 불가능 | Set으로 가능 |
@@ -1143,13 +1212,15 @@ Redis 기준 통과 사용자 수
 | 권장 여부 | 비교·관측용 | 선착순 판정에 권장 |
 
 ```
-INCR은 요청을 센다.
+요청마다 먼저 실행하는 INCR은 요청을 센다.
 
 SCARD는 사람을 센다.
 
 사용자 한 명당 쿠폰 하나인 선착순에서는
 고유 사용자를 세어야 한다.
 ```
+
+즉 중복 요청이 자리를 소비하는 것은 `INCR`의 필연적 특성이 아니라, **중복 확인보다 INCR을 먼저 실행하는 단순 구현**의 한계다.
 
 ---
 
@@ -1246,7 +1317,7 @@ SCARD는 사람을 센다.
 - DUPLICATE를 에러 화면이 아닌 기존 요청 안내로 표시
 ```
 
-기존 `requestId`를 반환하려면 Redis 또는 별도의 요청 상태 저장소에 `userId → requestId` 관계를 저장해야 한다.
+이 해설의 최종 설계에서는 `coupon:{eventId}:admission-requests` Hash에 `userId → requestId`를 저장한다. DUPLICATE 응답에 기존 requestId를 반환하거나 발급 상태 조회 API로 연결할 수 있다.
 
 ---
 
@@ -1402,7 +1473,7 @@ HTTP 503 Service Unavailable
 2. 실패 기록 저장
 
 3. 명확한 발행 실패라면
-   SREM으로 Redis 자리 반납
+   requestId 소유권을 확인한 뒤 Redis 자리 반납
 
 4. 복구 배치를 통한 재처리
 
@@ -1419,13 +1490,33 @@ Kafka 발행 실패
 실패 기록 저장
        |
        v
-SREM 보상
+requestId 비교 후 SREM + HDEL 보상
        |
        v
 503 응답
 ```
 
 실패 기록을 먼저 저장해야 복구 과정에서 어떤 요청이 실패했는지 알 수 있다.
+
+Set에서 `userId`만 무조건 `SREM`하면 지연된 예전 보상 작업이 같은 사용자의 새 요청으로 만들어진 자리까지 삭제할 수 있다. 따라서 `admission-requests` Hash의 현재 requestId가 실패한 requestId와 같을 때만 두 Key를 정리해야 한다.
+
+```lua
+-- KEYS[1]: issued-users Set
+-- KEYS[2]: admission-requests Hash
+-- ARGV[1]: userId
+-- ARGV[2]: 보상할 requestId
+
+local ownerRequestId = redis.call('HGET', KEYS[2], ARGV[1])
+
+if ownerRequestId ~= ARGV[2] then
+    return 'NOT_OWNER'
+end
+
+redis.call('SREM', KEYS[1], ARGV[1])
+redis.call('HDEL', KEYS[2], ARGV[1])
+
+return 'RELEASED'
+```
 
 ---
 
@@ -1434,12 +1525,12 @@ SREM 보상
 ```
 Redis SUCCESS
 → Kafka 발행 실패
-→ SREM 시도
+→ requestId 비교 보상 Script 시도
 → Redis 연결 장애
-→ SREM 실패
+→ 보상 실패
 ```
 
-또는 SREM을 실행하기 전에 API Server가 종료될 수 있다.
+또는 보상 Script를 실행하기 전에 API Server가 종료될 수 있다.
 
 따라서 단순한 `try-catch`만으로 해결할 수 없다.
 
@@ -1503,7 +1594,7 @@ Broker가 메시지를 저장했을 수 있지만
 ACK를 받지 못한 Timeout
 ```
 
-결과가 불명확한 상황에서 무조건 SREM하면 안 된다.
+결과가 불명확한 상황에서 무조건 자리를 반납하면 안 된다.
 
 실제로 Kafka에는 메시지가 저장되어 있을 수 있기 때문이다.
 
@@ -1519,6 +1610,8 @@ ACK를 받지 못한 Timeout
 
 Kafka Topic을 DB처럼 `requestId`로 직접 조회해서 저장 여부를 판단하는 방식은 일반적으로 어렵다.
 
+`enable.idempotence` 설정은 Producer가 같은 batch를 재시도하며 만드는 중복을 줄여주지만, API 재요청과 Consumer 재처리까지 없애주는 end-to-end 멱등성은 아니다. 따라서 requestId와 DB 기반 Consumer 멱등 처리가 별도로 필요하다.
+
 ---
 
 # **과제 10. Redis, Kafka, DB 역할 구분과 이후 주차 연결**
@@ -1531,11 +1624,12 @@ Kafka Topic을 DB처럼 `requestId`로 직접 조회해서 저장 여부를 판�
 | 저장 데이터 | 통과 사용자, 판정 기준 | 발급 요청 메시지 | 이벤트 재고, 발급 기록 |
 | 강점 | 빠른 O(1) 연산, Lua Script | 트래픽 완충, 재처리 | 트랜잭션, 제약 조건 |
 | 한계 | Failover·Eviction·장애 가능 | 비즈니스 규칙을 모름 | 대량 요청 시 Lock 병목 |
+| 실패 시 문제 | 유령 통과자·중복 판정 유실 | 요청 유실·중복·지연 | 최종 발급 실패·트랜잭션 롤백 |
 | 핵심 | 중복·수량 1차 차단 | SUCCESS 요청 전달 | 최종 수량·중복 방어 |
 
 ---
 
-## **10-2. Redis SUCCESS, API PENDING, DB ISSUED 차이**
+## **10-2. Redis SUCCESS, REQUEST PENDING, DB ISSUED 차이**
 
 ```
 Redis SUCCESS
@@ -1544,10 +1638,10 @@ Redis Set에 사용자가 등록되었다.
 ```
 
 ```
-API PENDING
+REQUEST PENDING
 
-Kafka Producer가 설정된 ACK 조건을 충족했고
-비동기 요청이 접수되었다.
+Kafka Producer의 발행 Future가 성공하고 설정된 ACK 조건을 충족해
+비동기 요청이 접수되었다. 이 과제에서는 `acks=all`과 idempotent Producer를 전제로 한다.
 ```
 
 ```
@@ -1680,22 +1774,19 @@ UNIQUE(event_id, user_id)
 
 ## **10-7. 5주차 — requestId 기반 멱등성**
 
-### **10-7-1. 같은 요청이 여러 번 들어올 수 있는 이유**
+### 10-7-1. 같은 요청이 여러 번 처리될 수 있는 이유
 
-```
-- 사용자의 중복 클릭
-- 응답 유실 후 클라이언트 재시도
 - Kafka 중복 전달
 - Consumer 재시작
 - Offset 재처리
 - 복구 배치 재발행
-```
 
-분산 시스템에서는 같은 요청이 두 번 오지 않게 만들기 어렵다.
+이 경우 동일한 requestId를 기준으로
+Consumer와 DB에서 멱등 처리한다.
 
-대신 두 번 와도 결과가 한 번과 같도록 만들어야 한다.
+사용자의 중복 클릭과 응답 유실 후 API 재시도까지 같은 요청으로 식별하려면 클라이언트가 동일한Idempotency-Key를 다시 전달해야 한다.
 
-이것이 멱등성이다.
+클라이언트가 Idempotency-Key를 사용하지 않는다면 eventId + userId를 기준으로 기존 requestId를 조회해 기존 요청 상태를 안내할 수 있다.
 
 ### **10-7-2. Redis 중복 체크와 requestId 멱등성 차이**
 
@@ -1832,7 +1923,7 @@ Kafka
 
 ### **10-10-1. Redis SUCCESS 이후 DB 저장 실패**
 
-DB 실패는 두 종류로 구분해야 한다.
+DB 처리 결과는 세 종류로 구분해야 한다.
 
 ```
 일시적 실패
@@ -1845,15 +1936,26 @@ DB 실패는 두 종류로 구분해야 한다.
 ```
 
 ```
-최종적 실패
+멱등 성공
+
+- 같은 requestId의 ISSUED 기록이 이미 존재
+
+→ 이전 처리가 이미 성공한 것
+→ 기존 ISSUED 결과를 반환하고 메시지 처리 완료
+```
+
+```
+최종적 비즈니스 실패
 
 - DB 기준 SOLD_OUT
-- 이미 발급된 사용자
+- 다른 requestId로 이미 발급된 사용자
 
 → 재시도해도 결과가 같음
 ```
 
-DB가 최종 SOLD_OUT이라면 Redis에서 SREM해 다른 사용자를 통과시키면 안 된다.
+`UNIQUE(event_id, user_id)` 위반을 무조건 `FAILED`로 처리하면 안 된다. Consumer가 같은 Kafka 메시지를 재처리한 것일 수 있으므로 requestId로 기존 발급 기록을 먼저 확인한다.
+
+DB가 최종 SOLD_OUT이라면 Redis 자리를 반납해 다른 사용자를 통과시키면 안 된다.
 
 DB에 남은 쿠폰이 없기 때문에 새 사용자도 실패한다.
 
@@ -1901,7 +2003,7 @@ Redis SUCCESS
 
 보상:
 실패 기록 저장
-SREM
+requestId 소유권 비교 후 SREM + HDEL
 재시도 안내
 ```
 
@@ -1914,7 +2016,7 @@ FAILED 상태 확정
 운영자 알림
 불일치 원인 조사
 
-DB에 실제 남은 쿠폰이 없으므로 SREM하지 않고 이후 요청도 계속 차단
+DB에 실제 남은 쿠폰이 없으므로 Redis 자리를 반납하지 않고 이후 요청도 계속 차단
 ```
 
 ```
@@ -1927,3 +2029,35 @@ Outbox 이벤트 재발행
 ```
 
 분산 시스템에서는 시간을 되돌려 롤백하기보다 반대 작업이나 재시도를 통해 상태를 올바른 방향으로 수렴시킨다.
+
+---
+
+# **보너스 과제. 나쁜 Redis 설계의 문제점 찾기**
+
+## **필수 수준**
+
+| 나쁜 설계 | 문제 | 개선 |
+| --- | --- | --- |
+| `SCARD`와 `SADD`를 따로 실행 | Race Condition으로 제한 수량 초과 | 확인·비교·추가를 Lua Script로 묶기 |
+| 요청마다 `INCR`부터 실행 | 중복 요청이 자리를 소비 | Set + Lua로 고유 통과자 수 판정 |
+| Redis SUCCESS를 최종 성공으로 응답 | Kafka·DB 실패 시 거짓 성공 안내 | REQUEST PENDING과 DB ISSUED 구분 |
+| DUPLICATE·SOLD_OUT도 Kafka에 발행 | Consumer·DB 불필요한 부하 | SUCCESS만 발행 |
+| Kafka 발행 실패 후 Redis 상태를 방치 | 유령 통과자 발생 | 실패 기록, 재시도, 소유권 기반 보상 |
+| 무조건 `SREM userId` 보상 | 예전 보상이 새 requestId의 자리를 삭제 | 현재 소유 requestId 비교 후 제거 |
+| `SADD`와 `SISMEMBER`의 userId 형식이 다름 | 중복 차단이 조용히 무력화 | member 직렬화 규칙 통일 |
+| DB UNIQUE만으로 전체 수량 방어 | 서로 다른 1,001명은 막지 못함 | UNIQUE + 조건부 UPDATE |
+
+## **심화 수준**
+
+| 나쁜 설계 | 문제 | 개선 |
+| --- | --- | --- |
+| API Server가 Lua에 서로 다른 limit 전달 | 서버별 캐시·배포 차이로 판정 기준 불일치 | Lua가 Redis metadata의 limit을 읽기 |
+| Cluster에서 Lua Key를 서로 다른 Slot에 배치 | `CROSSSLOT` 오류로 판정 실패 | 동일 `{eventId}` hash tag와 명시적 `KEYS` 사용 |
+| 존재하지 않는 Set에 `EXPIREAT`만 선행 | 나중에 생성된 Set에 TTL이 없음 | 첫 쓰기 Lua에서 생성과 TTL 설정 |
+| 과거 cleanupAt을 사용 | 첫 통과 직후 Key가 삭제되어 초과 통과 가능 | metadata 생성 시 현재 시각과 cleanupAt 검증 |
+| 일반 캐시 Redis에서 중요 Key도 Eviction | 통과 목록 유실로 중복·초과 판정 | 용도 분리, 메모리 모니터링, 적절한 maxmemory policy |
+| Lua Script가 오류 시 자동 롤백된다고 가정 | 오류 전 쓰기가 남을 수 있음 | 모든 검증을 첫 쓰기 앞에 배치 |
+| Kafka Timeout을 무조건 실패로 판단 | 실제 저장된 메시지가 있는데 자리를 반납 | 명확한 실패와 UNKNOWN 구분 |
+| `enable.idempotence`만으로 전 구간 멱등성을 보장한다고 가정 | API 재요청·Consumer 재처리 중복은 남음 | requestId + Consumer/DB 멱등 처리 |
+| UNIQUE 위반을 무조건 FAILED로 처리 | 이미 성공한 같은 requestId의 재처리일 수 있음 | 기존 requestId 결과 확인 후 멱등 성공 처리 |
+| Outbox가 Redis SADD와 Kafka 요청 발행을 원자화한다고 가정 | Redis와 RDB는 다른 저장소 | Outbox는 DB 변경과 결과 이벤트 발행에 적용 |
