@@ -1,10 +1,8 @@
-# **4주차 과제**
-
-# **DB 테이블 설계와 최종 정합성 보장 구조 설계**
+# **4주차 과제: DB 테이블과 최종 발급 정합성 보장**
 
 ## **1. 과제 목표**
 
-이번 4주차 과제의 목표는 **Redis와 Kafka를 통과한 쿠폰 발급 요청을 DB에 정확하게 저장하고, 사용자 중복 발급과 전체 수량 초과를 최종적으로 방어하는 구조를 설계하는 것**이다.
+이번 과제의 목표는 **Redis와 Kafka를 통과한 쿠폰 발급 요청을 DB에 정확하게 저장하고, 사용자 중복 발급과 전체 수량 초과를 방지하는 구조를 설계하는 것**이다.
 
 1주차에서는 요청 접수와 실제 발급 처리를 분리했다.
 
@@ -23,7 +21,7 @@ API Server
   ↓
 Redis 선착순 / 중복 판정
   ↓
-SUCCESS인 요청만 Kafka 발행
+ACCEPTED인 요청만 Kafka 발행
   ↓
 coupon.issue.requested Topic
   ↓
@@ -33,6 +31,8 @@ DB Transaction
   ├─ coupon_event.issued_count 증가
   └─ coupon_issue 발급 기록 저장
 ```
+
+`Redis ACCEPTED`는 3주차의 `Redis SUCCESS`와 같은 단계다. 최종 발급 성공과 구분하기 위해 이번 주차에서는 `ACCEPTED`로 표기한다.
 
 이번 과제에서 중요하게 볼 내용은 다음과 같다.
 
@@ -52,7 +52,7 @@ UNIQUE(event_id, user_id)의 역할과 한계
 issued_count 증가와 coupon_issue INSERT를
 하나의 트랜잭션으로 묶는 이유
 
-Kafka 중복 소비와 DB 멱등 처리
+Kafka 중복 소비와 DB 중복 발급 방지
 
 품절 후 중복 메시지가 재처리되는 경우
 
@@ -68,7 +68,7 @@ Redis는 빠른 선착순 판정을 담당한다.
 
 Kafka는 발급 요청 메시지를 전달한다.
 
-DB는 최종 발급 기록과 최종 수량 정합성을 방어한다.
+DB는 최종 발급 기록을 저장하고 수량 정합성을 보장한다.
 ```
 
 ---
@@ -102,9 +102,9 @@ Redis 데이터 유실 또는 초기화
 
 Redis Replica Failover 과정에서 일부 통과 기록 유실
 
-Kafka 메시지 중복 전달
+Kafka 메시지 재처리
 
-DB Commit 이후 Offset 반영 전 Consumer 장애
+DB Commit 이후 Consumer Group Offset 커밋 전 Consumer 장애
 
 애플리케이션 버그로 같은 발급 요청이 여러 번 DB에 도달
 ```
@@ -144,11 +144,16 @@ coupon_event.issued_count에 저장한다.
 모든 발급 처리는 issued_count 증가와
 coupon_issue INSERT를 같은 트랜잭션에서 수행한다.
 
+이벤트 발급 자격은 Redis 판정 시점을 기준으로 한다.
+Consumer는 이벤트 상태와 기간을 다시 판정하지 않고
+DB의 최종 수량과 사용자 중복 발급을 방어한다.
+
 PostgreSQL의 기본 격리 수준인
 READ COMMITTED를 기준으로 설명한다.
 
-Consumer가 메시지를 처리한 후에
-Kafka Offset이 반영된다고 가정한다.
+자동 Offset 커밋은 사용하지 않는다.
+Consumer가 DB 처리 결과를 확정한 후에
+Consumer Group Offset을 커밋한다고 가정한다.
 ```
 
 이번 주차에서는 아래 내용의 상세 구현은 다루지 않는다.
@@ -198,7 +203,7 @@ submissions/Week4/13기_김기민.md
 
 과제 6. 발급 트랜잭션과 Rollback 설계하기
 
-과제 7. Kafka 중복 소비와 DB 멱등 처리 설계하기
+과제 7. Kafka 중복 소비와 DB 중복 발급 방지 설계하기
 
 과제 8. 품절 후 중복 메시지 재처리 분석하기
 
@@ -264,7 +269,7 @@ coupon_issue
 
 | **단계** | **의미** | **최종 발급 성공 여부** |
 | --- | --- | --- |
-| Redis SUCCESS |  |  |
+| Redis ACCEPTED |  |  |
 | Kafka PUBLISHED |  |  |
 | DB ISSUED |  |  |
 
@@ -366,7 +371,7 @@ end_at
 
 status
 
-version
+version (낙관적 락을 선택할 경우)
 
 수량 CHECK 제약
 
@@ -513,12 +518,12 @@ issued_count는 1 증가해야 한다.
 
 ### **4. 영향받은 row 수가 0인 경우 가능한 원인**
 
+과제 5-1의 SQL은 `event_id`와 수량 조건만 사용한다. 중복 메시지 여부는 UPDATE 결과가 0인 직접 원인이 아니라, 이후 기존 발급 기록을 조회해 구분한다.
+
 ```
 1.
 
 2.
-
-3.
 ```
 
 ### **5. 다음 상황에서 UPDATE 결과를 작성하기**
@@ -623,7 +628,7 @@ Transaction A와 Transaction B가
 
 ---
 
-## **과제 7. Kafka 중복 소비와 DB 멱등 처리 설계하기**
+## **과제 7. Kafka 중복 소비와 DB 중복 발급 방지 설계하기**
 
 Kafka Consumer는 같은 메시지를 다시 처리할 수 있다.
 
@@ -634,7 +639,7 @@ Kafka Consumer는 같은 메시지를 다시 처리할 수 있다.
 
 2. DB 발급 트랜잭션을 Commit한다.
 
-3. Kafka Offset 반영 전에 Consumer가 종료된다.
+3. Consumer Group Offset 커밋 전에 Consumer가 종료된다.
 
 4. Consumer가 재시작된다.
 
@@ -677,7 +682,7 @@ Kafka Consumer는 같은 메시지를 다시 처리할 수 있다.
 4.
 ```
 
-### **6. DB 처리보다 Kafka Offset이 먼저 반영되면 안 되는 이유**
+### **6. DB 처리보다 Consumer Group Offset이 먼저 커밋되면 안 되는 이유**
 
 ```
 
@@ -741,6 +746,8 @@ user:10의 Kafka 메시지가 다시 전달됨
 ```
 
 ### **6. 다음 두 상황을 구분하는 처리 흐름 작성하기**
+
+각 상황에서 메시지 처리 완료 여부와 Consumer Group Offset 커밋 여부도 함께 작성한다.
 
 ```
 상황 A
@@ -852,6 +859,8 @@ user:10의 Kafka 메시지가 다시 전달됨
 ## **과제 10. Redis, Kafka, DB 불일치 상황과 이후 주차 연결하기**
 
 Redis, Kafka, DB는 서로 다른 시스템이므로 상태가 일시적으로 달라질 수 있다.
+
+Kafka 상태는 발행된 레코드의 존재 여부와 Consumer Group Offset 커밋 여부를 구분해서 작성한다. Kafka 레코드가 존재한다는 사실만으로 처리 대기 상태라고 판단하지 않는다.
 
 ### **1. Redis 통과 후 Kafka 발행 실패 상황**
 
