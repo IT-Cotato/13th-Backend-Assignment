@@ -698,6 +698,8 @@ coupon_issue
 
 ### 4-2. 요청 상태 모델
 
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/fc593284-e8e2-404e-8f39-586200cfaa70" />
+
 | 상태 | 의미 |
 | --- | --- |
 | `PENDING` | 요청 행이 생성되었지만 최종 처리가 끝나지 않은 상태 |
@@ -752,6 +754,8 @@ REQUEST_MISMATCH  메시지와 요청 행의 내용 불일치
 Retry 횟수와 DLQ 정책이 추가되면 `RETRY_PENDING`, `DEAD_LETTERED` 같은 상태를 둘 수 있다. 이 부분은 재시도 정책을 다루는 주차에서 확장한다.
 
 ### 4-4. 허용되는 상태 전이
+
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/945b2b2b-b77e-4b09-8cba-5fa0d61b4fce" />
 
 ```
 PENDING
@@ -890,6 +894,8 @@ CREATE TABLE coupon_issue_request (
 
 ### 4-6. 요청 테이블에 UNIQUE(event_id, user_id)를 두지 않는 이유
 
+<img width="1166" height="355" alt="image" src="https://github.com/user-attachments/assets/c5179341-9dd7-4aad-a7f2-7710e3e34a50" />
+
 이 제약을 두면 같은 사용자의 요청 이력을 하나만 저장할 수 있게 된다.
 
 ```
@@ -900,6 +906,8 @@ req-B → FAILED / DUPLICATE_USER
 두 이력이 모두 남아야 사용자가 두 번째 요청의 실패 이유를 조회할 수 있다. 사용자별 최종 발급 1회 규칙은 `coupon_issue`의 `UNIQUE(event_id, user_id)`가 담당한다.
 
 ### 4-7. 인덱스와 보관 기간
+
+<img width="1167" height="407" alt="image" src="https://github.com/user-attachments/assets/781c6812-30d8-4d98-8bd1-f1d72dcac51d" />
 
 Primary Key는 `requestId` 단건 조회를 처리한다. 운영 복구를 위해 상태와 시각 기준 조회가 필요하다.
 
@@ -925,6 +933,8 @@ Idempotency-Key 유효 기간
 ## 5. API Server의 처리 흐름
 
 ### 5-1. Redis 판정과 DB 요청 등록의 순서
+
+<img width="1448" height="1086" alt="image" src="https://github.com/user-attachments/assets/31125115-14c5-4b4f-ba56-9870e7d32484" />
 
 `coupon_issue_request`를 언제 저장할지는 트래픽과 복구 요구사항 사이의 선택이다.
 
@@ -998,6 +1008,8 @@ Redis SUCCESS → DB 요청 행 없음
 
 ### 5-2. Redis에 requestId를 함께 저장하는 이유
 
+<img width="1448" height="1086" alt="image" src="https://github.com/user-attachments/assets/53a98ca1-efd9-4e03-9246-86b4f339fab5" />
+
 3주차의 Set에는 사용자 ID만 있어 최초 요청 ID를 알 수 없다.
 
 ```
@@ -1035,6 +1047,8 @@ DB에 requestId 행이 아직 없다면
 Redis 통과 후 DB 등록이 완료되지 않은 중간 실패일 수 있으므로 재조회·복구·보상 정책이 필요하다.
 
 ### 5-3. 같은 requestId가 동시에 들어오는 경우
+
+<img width="1448" height="1086" alt="image" src="https://github.com/user-attachments/assets/5c2c6070-1eeb-469f-80cd-274d2b051f18" />
 
 Load Balancer 뒤의 두 API Server가 같은 요청을 동시에 받을 수 있다. 다음 구조는 안전하지 않다.
 
@@ -1182,6 +1196,8 @@ API 응답에서 이미 품절/중복 결과를 받은 requestId
 
 ### 6-1. Consumer 멱등성이 별도로 필요한 이유
 
+<img width="1173" height="336" alt="image" src="https://github.com/user-attachments/assets/0e352a67-984f-423b-9691-7e94a632b90f" />
+
 API Server에서 같은 요청을 차단했더라도 Kafka 뒤에서 중복이 발생할 수 있다.
 
 ```
@@ -1195,6 +1211,8 @@ Consumer 멱등성
 두 지점 모두 필요하다.
 
 ### 6-2. Kafka 메시지 구조와 검증
+
+<img width="1170" height="432" alt="image" src="https://github.com/user-attachments/assets/fb0521ed-2179-46be-8016-b73685522117" />
 
 ```json
 {
@@ -1230,6 +1248,8 @@ Consumer는 메시지의 값만 믿지 않고 **DB에 저장된 요청 상태를
 
 ### 6-3. SELECT 후 UPDATE가 안전하지 않은 이유
 
+<img width="1171" height="344" alt="image" src="https://github.com/user-attachments/assets/c76ef04c-e3bb-4fa3-8f5c-5f2cdbbd2613" />
+
 ```
 1. 상태를 SELECT한다.
 2. PENDING인지 애플리케이션에서 확인한다.
@@ -1253,6 +1273,8 @@ T7         발급 처리 시작              발급 처리 시작
 애플리케이션의 `if (status == PENDING)`만으로는 처리 권한을 하나로 제한할 수 없다.
 
 ### 6-4. 조건부 UPDATE로 처리 권한 획득
+
+<img width="1167" height="425" alt="image" src="https://github.com/user-attachments/assets/ec8f40ed-e61a-42b8-b365-55483768c453" />
 
 상태 확인과 변경을 한 문장으로 처리한다.
 
@@ -1292,6 +1314,8 @@ Consumer B
 > 
 
 ### 6-5. affected rows가 0인 경우
+
+<img width="1171" height="463" alt="image" src="https://github.com/user-attachments/assets/3d8e0d18-1fc5-4893-895c-3109fc5aa6ee" />
 
 0행을 바로 실패로 처리하면 안 된다. 기존 요청 상태를 다시 조회해 구분한다.
 
