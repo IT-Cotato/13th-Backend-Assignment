@@ -21,7 +21,7 @@
 
 5주차까지 쿠폰 발급 요청은 다음 흐름으로 처리했다.
 
-!image.png
+![5주차까지의 쿠폰 발급 처리 흐름](images/01-week5-processing-flow.png)
 
 이 DB 트랜잭션이 Commit된 시점을 최종 쿠폰 발급 성공으로 본다.
 
@@ -102,7 +102,7 @@ Spring의 DB 트랜잭션이 Kafka Broker의 저장까지 자동으로 Rollback�
 
 ## 3. 순서를 바꾸어도 해결되지 않는다
 
-!image.png
+![DB와 Kafka 쓰기 순서별 장애 시나리오](images/02-dual-write-ordering.png)
 
 ### 3-1. DB를 먼저 Commit하는 경우
 
@@ -172,7 +172,7 @@ DB Commit과 Kafka 저장 사이에는
 
 ## 4. `AFTER_COMMIT`만으로 부족한 이유
 
-!image.png
+![AFTER_COMMIT 방식의 이벤트 유실 구간](images/03-after-commit-gap.png)
 
 DB Commit이 끝난 뒤 Kafka를 호출하도록 만들 수 있다.
 
@@ -226,7 +226,7 @@ Outbox Pattern은 발행할 이벤트를 메모리가 아니라 DB에 저장한�
 
 ## 5. Transactional Outbox Pattern
 
-!image.png
+![Transactional Outbox Pattern 처리 구조](images/04-transactional-outbox.png)
 
 Transactional Outbox Pattern은 비즈니스 데이터와 발행할 이벤트를 **같은 DB의 같은 트랜잭션**에 저장한다.
 
@@ -330,7 +330,7 @@ CouponIssued 발행 의도 저장
 
 ### 6-1. 원본 Kafka 메시지 소비와 DB Commit
 
-!image.png
+![원본 Kafka 메시지 소비와 DB Commit 사이의 장애 구간](images/05-request-offset-gap.png)
 
 Outbox는 다음 구간을 원자화하지 않는다.
 
@@ -373,7 +373,7 @@ Transactional Outbox
 
 ### 6-2. Redis와 최초 Kafka 요청 발행
 
-!image.png
+![Redis 성공과 최초 Kafka 요청 발행 사이의 정합성 범위](images/06-redis-request-publish-gap.png)
 
 이번 주차의 결과 Outbox가 다음 구간까지 자동으로 해결하는 것은 아니다.
 
@@ -416,7 +416,7 @@ Redis와 PostgreSQL의 상태가 어긋나는 구체적인 경로와 그 영향�
 
 ### 6-3. 실패 이벤트의 범위
 
-!image.png
+![성공 및 실패 이벤트의 적용 범위](images/07-failure-event-scope.png)
 
 이번 주차의 기본 이벤트는 발급 성공 사실을 나타내는 `CouponIssued`다.
 
@@ -447,7 +447,7 @@ DB Timeout이나 Deadlock 같은 일시적 기술 실패는 최종 실패 이벤
 
 ## 7. 전체 처리 구조
 
-!image.png
+![쿠폰 발급과 결과 이벤트 발행의 전체 처리 구조](images/08-overall-processing-flow.png)
 
 Coupon Issue Consumer와 Outbox Publisher의 역할은 다르다.
 
@@ -472,7 +472,7 @@ Outbox Publisher
 
 ## 8. 이벤트는 이미 발생한 사실을 표현한다
 
-!image.png
+![명령과 이미 발생한 사실 이벤트의 차이](images/09-event-as-fact.png)
 
 결과 이벤트의 이름은 명령보다 이미 발생한 사실을 표현해야 한다.
 
@@ -557,7 +557,7 @@ eventMessageId
 
 ### 9-1. `occurredAt`, `issuedAt`, `aggregateVersion`
 
-!image.png
+![occurredAt, issuedAt, aggregateVersion의 역할](images/10-event-time-and-version.png)
 
 `occurredAt`은 Publisher가 Kafka에 보낸 시각이 아니다.
 
@@ -608,7 +608,7 @@ CouponCancelled
 
 ### 9-2. 이벤트 Payload는 Outbox에 완성된 형태로 저장한다
 
-!image.png
+![Outbox Payload 불변 Snapshot 구조](images/11-payload-snapshot.png)
 
 Publisher가 발행 시점에 현재 비즈니스 테이블을 다시 조회해 Payload를 만들면 안 된다.
 
@@ -626,7 +626,7 @@ Outbox 행은 특정 시점에 발생한 사실의 불변 Snapshot으로 다룬�
 
 ### 9-3. Partition Key와 순서 보장 범위
 
-!image.png
+![Partition Key와 이벤트 순서 보장 범위](images/12-partition-ordering.png)
 
 Kafka에서 같은 Key를 가진 Record는 같은 Partition으로 전달된다.
 
@@ -843,7 +843,7 @@ WHERE status = 'PROCESSING';
 
 ### 10-1. 상태의 의미
 
-!image.png
+![Outbox 상태별 의미](images/13-outbox-status.png)
 
 | 상태 | 의미 |
 | --- | --- |
@@ -867,7 +867,7 @@ outbox = PUBLISHED
 
 ### 10-2. `request_id`는 필수 컬럼이 아니다
 
-!image.png
+![선택적 request_id와 필수 Aggregate 식별자](images/14-optional-request-id.png)
 
 `outbox_event`는 특정 도메인 전용 테이블이 아니라 **여러 종류의 결과 이벤트를 담는 범용 발행 큐**다.
 
@@ -897,7 +897,7 @@ DB 제약으로 강제하지 않을 뿐이다.
 
 ### 10-3. `deduplication_key`
 
-!image.png
+![deduplication_key 생성 규칙](images/15-deduplication-key.png)
 
 `deduplication_key`는 같은 비즈니스 결과의 Outbox 행이 여러 번 만들어지는 것을 막는다.
 
@@ -935,7 +935,7 @@ CouponUsed
 
 ### 10-4. `deduplication_key` UNIQUE 위반이 발생하면 어떻게 하는가
 
-!image.png
+![deduplication_key UNIQUE 충돌 처리](images/16-deduplication-conflict.png)
 
 **정상 경로에서는 이 위반이 발생하지 않아야 한다.**
 
