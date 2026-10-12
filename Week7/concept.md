@@ -560,7 +560,7 @@ Kafka 보관 기간이 지난 이벤트는 Kafka만으로 복구할 수 없다. 
 | MyPage 중단 | `ISSUED` 유지 | 쿠폰함 반영만 늦어지고 MyPage Group에서 다시 처리한다. |
 | Analytics 중단 | `ISSUED` 유지 | 통계 갱신만 늦어진다. |
 | DB Commit 후 Offset Commit 전 종료 | `ISSUED` 유지 | 이벤트가 재전달되며 `processed_event`로 방어한다. |
-| 잘못된 Payload | `ISSUED` 유지 | 해당 Group에서 8주차 Retry/DLQ 정책을 적용한다. |
+| 잘못된 Payload | `ISSUED` 유지 | 해당 Group의 재처리·격리 정책은 별도 설계가 필요하다. |
 
 후속 작업이 실패했다고 원본 `coupon.issue.requested`를 다시 처리하면 안 된다. 재시도 대상은 실패한 Consumer 작업이지 이미 성공한 쿠폰 발급이 아니다.
 

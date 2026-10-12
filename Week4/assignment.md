@@ -921,7 +921,7 @@ Kafka 상태는 발행된 레코드의 존재 여부와 Consumer Group Offset �
 
 ```
 
-### **9. 8주차 Retry와 DLQ에서 해결할 문제**
+### **9. 별도 설계 과제: Retry와 DLQ에서 해결할 문제**
 
 ```
 

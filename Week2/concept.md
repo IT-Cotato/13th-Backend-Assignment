@@ -827,9 +827,6 @@ Consumer가 메시지 처리
 
 5주차
 → requestId 기반 멱등성 처리
-
-8주차
-→ 실패 메시지 재처리, DLQ, 보상 트랜잭션
 ```
 
 <img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/8845e92e-6a4d-42de-9bb2-52fc84f5720c" />
@@ -1644,7 +1641,7 @@ Retry Topic / DLQ
 알림, 마이페이지, 통계 서비스 이벤트 분리
 ```
 
-각 내용은 뒤 주차에서 다룬다.
+3~7주차 내용은 뒤 주차에서 다룬다. Retry / DLQ / 보상 트랜잭션은 별도 설계 과제로 남긴다.
 
 | **내용** | **다루는 주차** |
 | --- | --- |
@@ -1653,7 +1650,7 @@ Retry Topic / DLQ
 | requestId 기반 멱등성 | 5주차 |
 | Outbox Pattern | 6주차 |
 | EDA 기반 서비스 분리 | 7주차 |
-| Retry / DLQ / 보상 트랜잭션 | 8주차 |
+| Retry / DLQ / 보상 트랜잭션 | 별도 설계 과제 |
 
 이번 주차에서는 다음 범위에 집중한다.
 

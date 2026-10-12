@@ -1484,7 +1484,7 @@ DB 변경과 결과 이벤트 발행의 정합성을 위한 Outbox Pattern
 ```
 
 ```
-8주차
+별도 설계 과제
 
 Retry Topic
 DLQ
@@ -1840,7 +1840,7 @@ Kafka
 
 ---
 
-## **10-10. 8주차 — Retry, DLQ, 보상 처리**
+## **10-10. 별도 설계 과제 — Retry, DLQ, 보상 처리**
 
 ### **10-10-1. Redis SUCCESS 이후 DB 저장 실패**
 
